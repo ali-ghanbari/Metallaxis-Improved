@@ -12,8 +12,8 @@ public class MethodsPool {
 	private MethodsPool() {
 		pool = new ArrayList<>();
 		final String filePath = Util.joinPath(Config.ALL_METH_BASE_PATH,
-				Config.PROG_ID,
-				Config.PROG_VER + ".txt");
+				Config.PROG_ID(),
+				Config.PROG_VER() + ".txt");
 		try(BufferedReader br = new BufferedReader(new FileReader(filePath))) {
 			String previous = null;
 			String ln;

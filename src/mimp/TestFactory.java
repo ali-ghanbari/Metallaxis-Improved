@@ -16,6 +16,9 @@ public class TestFactory {
 	
 	public Test create(String description) {
 		final int firstLeftParenthesis = description.indexOf('(');
+		if(firstLeftParenthesis < 0) {
+			return null;
+		}
 		assert(firstLeftParenthesis >= 0);
 		final String testName = description.substring(0, firstLeftParenthesis);
 		if(description.endsWith("PASS")) {

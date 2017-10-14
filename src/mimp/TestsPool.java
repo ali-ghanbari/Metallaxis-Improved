@@ -8,25 +8,34 @@ import java.util.List;
 public class TestsPool {
 	private static TestsPool instance = null;
 	public final List<Test> pool;
+	public final int failingTestsCount;
 	
 	private TestsPool() {
 		pool = new ArrayList<>();
 		final String filePath = Util.joinPath(Config.DYNAMIC_INFO_BASE_PATH,
-				Config.PROG_ID,
+				Config.PROG_ID(),
 				"coverage-test",
-				Config.PROG_VER + ".txt");
+				Config.PROG_VER() + ".txt");
+		int failingTestsCount = 0;
 		try(BufferedReader br = new BufferedReader(new FileReader(filePath))) {
 			String description;
 			while((description = br.readLine()) != null) {
 				description = description.trim();
 				if(!description.startsWith("^^^")) {
-					pool.add(TestFactory.v().create(description));
+					Test test = TestFactory.v().create(description);
+					if(test != null) {
+						pool.add(test);
+						if(test instanceof FailingTest) {
+							failingTestsCount++;
+						}
+					}
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 		pool.sort(Test::compareTo);
+		this.failingTestsCount = failingTestsCount;
 	}
 	
 	public static TestsPool v() {
@@ -52,6 +61,18 @@ public class TestsPool {
 			}
 		}
 		return null;
+	}
+	
+	private static Double failingTestsRank = null;
+	
+	public double failingTestsRank() {
+		if(failingTestsRank == null) {
+			failingTestsRank = pool.parallelStream()
+					.filter(test -> test instanceof FailingTest)
+					.mapToDouble(Test::rank)
+					.sum();
+		}
+		return failingTestsRank.doubleValue();
 	}
 	
 	public Test getTestByName(String name) {

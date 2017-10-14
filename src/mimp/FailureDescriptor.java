@@ -14,4 +14,13 @@ public abstract class FailureDescriptor {
 	public String toString() {
 		return info;
 	}
+	
+	@Override
+	public boolean equals(Object o) {
+		if(o == null) {
+			return true;
+		}
+		FailureDescriptor other = (FailureDescriptor) o;
+		return info.equals(other.info);
+	}
 }
