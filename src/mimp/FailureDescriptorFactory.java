@@ -10,7 +10,7 @@ public class FailureDescriptorFactory {
 	private int type;
 	
 	private FailureDescriptorFactory() {
-		type = TYPE_ONLY;
+		type = FULL;//TYPE_ONLY;//TYPE_AND_MSG;//
 	}
 	
 	public static FailureDescriptorFactory v() {

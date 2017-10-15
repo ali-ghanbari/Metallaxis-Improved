@@ -11,6 +11,7 @@ public class FailingTest extends Test {
 	@Override
 	public void computeInfluencers() {
 		for(Mutant failurePoint : failurePoints) {
+			assert(failurePoint.failingTestDetails.get(name) != null);
 			if(!descriptor.equals(failurePoint.failingTestDetails.get(name))) {
 				addInfluencer(failurePoint);
 				failurePoint.failingImpacts.add(this);
