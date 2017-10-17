@@ -3,6 +3,7 @@ package mimp;
 public class FailureDescriptorFactory {
 	private static FailureDescriptorFactory instance = null;
 	
+	public static final int KIND_ONLY = 1;
 	public static final int TYPE_ONLY = 2;
 	public static final int TYPE_AND_MSG = 3;
 	public static final int FULL = 4;
@@ -10,7 +11,7 @@ public class FailureDescriptorFactory {
 	private int type;
 	
 	private FailureDescriptorFactory() {
-		type = FULL;//TYPE_ONLY;//TYPE_AND_MSG;//
+		type = TYPE_AND_MSG;//TYPE_ONLY;//KIND_ONLY;//FULL;//
 	}
 	
 	public static FailureDescriptorFactory v() {
@@ -31,6 +32,7 @@ public class FailureDescriptorFactory {
 	
 	public FailureDescriptor create(String description) {
 		switch(type) {
+		case KIND_ONLY: return KindFailureDescriptor.forDescription(description);
 		case TYPE_ONLY:	return TypeFailureDescriptor.forDescription(description);
 		case TYPE_AND_MSG: return TypeMessageFailureDescriptor.forDescription(description);
 		case FULL: return FullFailureDescriptor.forDescription(description);

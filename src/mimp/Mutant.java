@@ -17,7 +17,7 @@ public class Mutant {
 		passingImpacts = new ArrayList<>();
 	}
 	
-	public double susp() {
+	public double oldSusp() {
 		if(failingImpacts.isEmpty() && passingImpacts.isEmpty()) {
 			return 0;
 		}
@@ -28,7 +28,19 @@ public class Mutant {
 			return T_f_e / Math.sqrt((T_f_e + T_p_e) * T_f);
 		//}
 		//return 0;
-		
+	}
+	
+	public double newSusp() {
+//		if(failingImpacts.isEmpty() && passingImpacts.isEmpty()) {
+//			return 0;
+//		}
+		double T_f_e = failingImpacts.stream().mapToDouble(Test::rank).sum(); //.size();//
+		double T_p_e = passingImpacts.stream().mapToDouble(Test::rank).sum(); //.size();//
+		double T_f = TestsPool.v().failingTestsRank(); //.failingTestsCount;//
+		if(T_f > 0. && (T_f_e > 0. || T_p_e > 0.)) {
+			return T_f_e / Math.sqrt((T_f_e + T_p_e) * T_f);
+		}
+		return 0;
 	}	
 }
 

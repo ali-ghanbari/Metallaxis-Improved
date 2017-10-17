@@ -26,8 +26,12 @@ public class Method implements Comparable<Method> {
 		return fullSignature.equals(other.fullSignature);
 	}
 	
-	public double susp() {
-		return mutants.stream().map(Mutant::susp).max(Double::compareTo).orElse(0.);
+	public double oldSusp() {
+		return mutants.stream().map(Mutant::oldSusp).max(Double::compareTo).orElse(0.);
+	}
+	
+	public double newSusp() {
+		return mutants.stream().map(Mutant::newSusp).max(Double::compareTo).orElse(0.);
 	}
 	
 	@Override

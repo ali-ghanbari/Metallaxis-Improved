@@ -22,34 +22,49 @@ public class Main {
 		TestsPool.v().pool.stream().forEach(Test::computeInfluencers);
 		loadBuggyMethods();
 		
-		if(Config.PROG_VER() == 12) {
-			Method bm = MethodsPool.v().getMethodByFullSignature("org.jfree.chart.plot.MultiplePiePlot:<init>(Lorg/jfree/data/category/CategoryDataset;)V");
-			System.out.println("***************************************************");
-			System.out.println("METHOD NAME: " + bm.fullSignature);
-			System.out.println("# MUTANTS: " + bm.mutants.size());
-			int mutantNo = 1;
-			for(Mutant m : bm.mutants) {
-				System.out.println("MUTANT #" + mutantNo);
-				System.out.println("\t|T_f_e| = " + m.failingImpacts.size());
-				System.out.println("\t|T_p_e| = " + m.passingImpacts.size());
-				mutantNo++;
-			}
-			System.out.println("TOTAL NUMBER OF FAILING TESTS: " + TestsPool.v().failingTestsCount);
-			System.out.println("SUSPICIOUSNESS VALUE: " + bm.susp());
-			System.out.println("***************************************************");
-		}
+//		if(Config.PROG_VER() == 12) {
+//			Method bm = MethodsPool.v().getMethodByFullSignature("org.jfree.chart.plot.MultiplePiePlot:<init>(Lorg/jfree/data/category/CategoryDataset;)V");
+//			System.out.println("***************************************************");
+//			System.out.println("METHOD NAME: " + bm.fullSignature);
+//			System.out.println("# MUTANTS: " + bm.mutants.size());
+//			int mutantNo = 1;
+//			for(Mutant m : bm.mutants) {
+//				System.out.println("MUTANT #" + mutantNo);
+//				System.out.println("\t|T_f_e| = " + m.failingImpacts.size());
+//				System.out.println("\t|T_p_e| = " + m.passingImpacts.size());
+//				mutantNo++;
+//			}
+//			System.out.println("TOTAL NUMBER OF FAILING TESTS: " + TestsPool.v().failingTestsCount);
+//			System.out.println("SUSPICIOUSNESS VALUE: " + bm.susp());
+//			System.out.println("***************************************************");
+//		}
 		
 		System.out.println("ranking...");
-		final String outFilePath = Util.joinPath(args[0],
+		final String outOldFilePath = Util.joinPath(args[0],
 				Config.PROG_ID(),
-				Config.PROG_VER() + ".txt");
-		try(PrintWriter pw = new PrintWriter(new FileOutputStream(outFilePath))) {
-			for(Method meth : MethodsPool.v().pool) {
-				double s = meth.susp();
-				if(isBuggy(meth) || s > 0.) {
-					
-					pw.println(meth.fullSignature + " " + s);
-				}
+				"old" + Config.PROG_VER() + ".txt");
+		try(PrintWriter pwOld = new PrintWriter(new FileOutputStream(outOldFilePath))) {
+			final String outNewFilePath = Util.joinPath(args[0],
+					Config.PROG_ID(),
+					"new" + Config.PROG_VER() + ".txt");
+			try(PrintWriter pwNew = new PrintWriter(new FileOutputStream(outNewFilePath))) {
+				for(Method meth : MethodsPool.v().pool) {
+					double sOld = meth.oldSusp();
+					double sNew = meth.newSusp();
+					final String oldStr = meth.fullSignature + " " + sOld;
+					final String newStr = meth.fullSignature + " " + sNew; 
+					if(isBuggy(meth)) {
+						pwOld.println(oldStr);
+						pwNew.println(newStr);
+					} else {
+						if(sOld > 0.) {
+							pwOld.println(oldStr);
+						}
+						if(sNew > 0.) {
+							pwNew.println(newStr);
+						}
+					}
+				}	
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -96,11 +111,9 @@ public class Main {
 							mutationDescription.indexOf(']', indexOfMethodDescription));
 					final String mutatedMethodFullSignature = constructMethodFullSignature(methodDescription);
 					final Method mutatedMethod = MethodsPool.v().getMethodByFullSignature(mutatedMethodFullSignature);
-					if(mutatedMethod == null) {
-						System.out.println(mutatedMethodFullSignature);
-					}
+
 					assert(mutatedMethod != null);
-					
+
 					final int indexOfCoverageDescription = mutationDescription.indexOf("testsInOrder=");
 					assert(indexOfCoverageDescription >= 0);
 					final List<Test> coveringTests = new ArrayList<>();
@@ -123,16 +136,16 @@ public class Main {
 					for(int i = 1; i < description.length; i++) {
 						final String testFailureDescription = description[i];
 						assert(testFailureDescription.startsWith("[EXCEPTION]"));
-						
 						int index = testFailureDescription.indexOf(']') + 1;
 						/*ignoring the set of white spaces*/
 						while(Character.isWhitespace(testFailureDescription.charAt(index))) {
 							index++;
 						}
 						int lastIndex = testFailureDescription.indexOf('(');
-						if(lastIndex >= 0) {
+						int indexOfFalse = testFailureDescription.indexOf(" false ");
+						if(lastIndex >= 0 && lastIndex < indexOfFalse) {
 							final String failedTestName = testFailureDescription.substring(index,
-								lastIndex);
+									lastIndex);
 							int startOfFailureDescription = testFailureDescription.indexOf(')') 
 									+ 1 /*ignore the right parenthesis itself*/;
 							/*ignoring the first set of white spaces*/
@@ -150,7 +163,7 @@ public class Main {
 									.v()
 									.create(failureDescription);
 							Test failedTest = TestsPool.binarySearchTestByName(coveringTests, failedTestName);
-						//	assert(failedTest != null);
+							//	assert(failedTest != null);
 							if(failedTest != null) {
 								failingTests.add(failedTest);
 								failingTestDetails.put(failedTestName, failureDescriptor);
@@ -160,7 +173,7 @@ public class Main {
 					/************************************************************************************************/
 					final Mutant p = new Mutant(failingTestDetails);
 					//return mutant;
-					
+
 					/*****************************************************************/
 					mutatedMethod.mutants.add(p);
 					for(Test test : failingTests) {

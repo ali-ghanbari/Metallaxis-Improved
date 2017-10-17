@@ -14,7 +14,7 @@ public abstract class Test implements Comparable<Test> {
 	}
 	
 	public double rank() {
-		assert(influencers.length > 0);
+		//assert(influencers.length > 0);
 		if(influencers.length > 0)
 			return 1. / (double) influencers.length;
 		return 0;
