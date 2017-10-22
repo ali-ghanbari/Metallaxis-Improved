@@ -1,5 +1,8 @@
 package mimp;
 
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
 public class FullFailureDescriptor extends FailureDescriptor {
 	private FullFailureDescriptor(String info) {
 		super(info);
@@ -10,7 +13,11 @@ public class FullFailureDescriptor extends FailureDescriptor {
 	}
 	
 	public static String getInfo(String description) {
-		return description.substring(TypeMessageFailureDescriptor.afterLastChar(description));
+		String rawStackTrace = description.substring(TypeMessageFailureDescriptor.afterLastChar(description));
+		return Pattern.compile("\\s")
+			.splitAsStream(rawStackTrace)
+			.filter(mn -> mn.startsWith(Config.GROUP_ID))
+			.collect(Collectors.joining(" "));
 	}
 	
 	public static FullFailureDescriptor forDescription(String description) {

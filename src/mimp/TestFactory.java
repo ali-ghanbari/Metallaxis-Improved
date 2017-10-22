@@ -15,7 +15,9 @@ public class TestFactory {
 	}
 	
 	public Test create(String description) {
-		final int firstLeftParenthesis = description.indexOf('(');
+		final int firstSpace = description.indexOf(' ');
+		final String firstPart = description.substring(0, firstSpace);
+		final int firstLeftParenthesis = firstPart.indexOf('(');
 		if(firstLeftParenthesis < 0) {
 			return null;
 		}

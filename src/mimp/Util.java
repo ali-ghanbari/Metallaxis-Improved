@@ -22,7 +22,7 @@ public class Util {
 	
 	public static void openFile(String fileName) {
 		try {
-			br = new BufferedReader(new FileReader(fileName));
+			br = new BufferedReader(new FileReader(fileName), 4096);
 			remaining = "";
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -6,24 +6,25 @@ import java.io.FileReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class Main {
-	private static Set<String> buggyMethodNames = new HashSet<>();
+//	private static Set<String> buggyMethodNames = new HashSet<>();
+	private static List<Method> coveredMethods = new ArrayList<>();
 
-	public static void main(String[] args) {
+	public static void main(String[] args) {		
 		System.out.println("loading...");
 		MethodsPool.v();
 		TestsPool.v();
 		loadMutants();
-		TestsPool.v().pool.stream().forEach(Test::computeInfluencers);
-		loadBuggyMethods();
+		//TestsPool.v().pool.stream().forEach(Test::computeInfluencers);
+		TestsPool.v().computeInfluencers();
+		//loadBuggyMethods();
+		loadCoveredMethods();
 		
-//		if(Config.PROG_VER() == 12) {
-//			Method bm = MethodsPool.v().getMethodByFullSignature("org.jfree.chart.plot.MultiplePiePlot:<init>(Lorg/jfree/data/category/CategoryDataset;)V");
+//		if(Config.PROG_VER() == 75) {
+//			Method bm = MethodsPool.v().getMethodByFullSignature("org.apache.commons.math.stat.Frequency:getPct(Ljava/lang/Object;)D");
 //			System.out.println("***************************************************");
 //			System.out.println("METHOD NAME: " + bm.fullSignature);
 //			System.out.println("# MUTANTS: " + bm.mutants.size());
@@ -35,7 +36,7 @@ public class Main {
 //				mutantNo++;
 //			}
 //			System.out.println("TOTAL NUMBER OF FAILING TESTS: " + TestsPool.v().failingTestsCount);
-//			System.out.println("SUSPICIOUSNESS VALUE: " + bm.susp());
+//			System.out.println("SUSPICIOUSNESS VALUE: " + bm.oldSusp());
 //			System.out.println("***************************************************");
 //		}
 		
@@ -48,22 +49,24 @@ public class Main {
 					Config.PROG_ID(),
 					"new" + Config.PROG_VER() + ".txt");
 			try(PrintWriter pwNew = new PrintWriter(new FileOutputStream(outNewFilePath))) {
-				for(Method meth : MethodsPool.v().pool) {
+				for(Method meth : coveredMethods) {
 					double sOld = meth.oldSusp();
 					double sNew = meth.newSusp();
 					final String oldStr = meth.fullSignature + " " + sOld;
-					final String newStr = meth.fullSignature + " " + sNew; 
-					if(isBuggy(meth)) {
-						pwOld.println(oldStr);
-						pwNew.println(newStr);
-					} else {
-						if(sOld > 0.) {
-							pwOld.println(oldStr);
-						}
-						if(sNew > 0.) {
-							pwNew.println(newStr);
-						}
-					}
+					final String newStr = meth.fullSignature + " " + sNew;
+					pwOld.println(oldStr);
+					pwNew.println(newStr);
+//					if(isBuggy(meth)) {
+//						pwOld.println(oldStr);
+//						pwNew.println(newStr);
+//					} else {
+//						if(sOld > 0.) {
+//							pwOld.println(oldStr);
+//						}
+//						if(sNew > 0.) {
+//							pwNew.println(newStr);
+//						}
+//					}
 				}	
 			}
 		} catch (Exception e) {
@@ -71,9 +74,9 @@ public class Main {
 		}			
 	}
 	
-	private static boolean isBuggy(Method method) {
-		return buggyMethodNames.contains(method.fullSignature);
-	}
+//	private static boolean isBuggy(Method method) {
+//		return buggyMethodNames.contains(method.fullSignature);
+//	}
 	
 	private static String constructMethodFullSignature(String description) {
 		String[] parts = description.split(",\\s");
@@ -198,25 +201,53 @@ public class Main {
 //		}
 	}
 	
-	private static void loadBuggyMethods() {
-		final String filePath = Util.joinPath(Config.BUG_METH_BASE_PATH,
+//	private static void loadBuggyMethods() {
+//		final String filePath = Util.joinPath(Config.BUG_METH_BASE_PATH,
+//				Config.PROG_ID(),
+//				Config.PROG_VER() + ".txt");
+//		final String prefix = "^^^^^^";
+//		try(BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+//			String line;
+//			System.out.println("Buggy Methods:");
+//			while((line = br.readLine()) != null) {
+//				line = line.trim();
+//				if(line.startsWith(prefix)) {
+//					final String bugMethodFullSignature = line.substring(prefix.length());
+//					buggyMethodNames.add(bugMethodFullSignature.replace(":", Config.SIGNATURE_SPLITTER));
+//					System.out.println(bugMethodFullSignature.replace(":", Config.SIGNATURE_SPLITTER));
+//				}
+//			}
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//	}
+		
+	private static void loadCoveredMethods() {
+		final String filePath = Util.joinPath("/home/Ali/metallaxis/xias-susp-vals/",
 				Config.PROG_ID(),
-				Config.PROG_VER() + ".txt");
-		final String prefix = "^^^^^^";
+				"" + Config.PROG_VER(),
+				"Ochiaitype1.txt");
 		try(BufferedReader br = new BufferedReader(new FileReader(filePath))) {
 			String line;
-			System.out.println("Buggy Methods:");
 			while((line = br.readLine()) != null) {
 				line = line.trim();
-				if(line.startsWith(prefix)) {
-					final String bugMethodFullSignature = line.substring(prefix.length());
-					buggyMethodNames.add(bugMethodFullSignature.replace(":", Config.SIGNATURE_SPLITTER));
-					System.out.println(bugMethodFullSignature.replace(":", Config.SIGNATURE_SPLITTER));
+				String[] parts = line.split("\\s");
+				String[] rawParts = parts[0].split("\\.");
+				String methodName = rawParts[0];
+				for(int i = 1; i < rawParts.length - 1; i ++) {
+					methodName += "." + rawParts[i];
+				}
+				methodName += ":" + rawParts[rawParts.length - 1];
+				
+				Method meth = MethodsPool.v().getMethodByFullSignature(methodName);
+				if(meth == null) {
+					System.out.println(Config.PROG_VER() + " " + methodName);
+				} else {
+					coveredMethods.add(meth);
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}
-		
 }
