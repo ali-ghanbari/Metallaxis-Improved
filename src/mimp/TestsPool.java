@@ -2,9 +2,12 @@ package mimp;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class TestsPool {
 	private static TestsPool instance = null;
@@ -17,7 +20,12 @@ public class TestsPool {
 		//pool = new ArrayList<>();
 		failingTestsMap = new HashMap<>();
 		passingTestsMap = new HashMap<>();
-		Map<String, String> failureInfoMap = loadCoverageTest();
+		Map<String, String> failureInfoMap;
+		if(Config.PROG_ID().equals("Closure")) {
+			failureInfoMap = loadCoverageTestClosure();
+		} else {
+			failureInfoMap = loadCoverageTestOthers();
+		}
 		final String filePath = Util.joinPath(Config.FAILING_TESTS_BASE_PATH,
 				Config.PROG_ID(),
 				Config.PROG_VER() + ".txt");
@@ -59,7 +67,34 @@ public class TestsPool {
 			System.out.println("SDSDS");
 	}
 	
-	private Map<String, String> loadCoverageTest() {
+	private Map<String, String> loadCoverageTestClosure() {
+		final String path = Util.joinPath(Config.CLOSURE_DYN_INF_BASE_PATH,
+				Integer.toString(Config.PROG_VER()),
+				"coverage-test");
+		final Map<String, String> result = new HashMap<>();
+		final List<String> filesList = new ArrayList<>();
+		Util.listFiles(path, filesList);
+		for(String fileName : filesList) {
+			try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+				br.lines().filter(description -> description.indexOf("[STACKTRACE]") > 0)
+					.map(description -> description.trim())
+					.forEach(description -> {
+						final int firstSpace = description.indexOf(' ');
+						final String firstPart = description.substring(0, firstSpace);
+						final int firstParenthesis = firstPart.indexOf('(');
+						if(firstParenthesis >= 0) {
+							final String testName = firstPart.substring(0, firstParenthesis);
+							result.put(testName, description);
+						}
+					});
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		return result;
+	}
+	
+	private Map<String, String> loadCoverageTestOthers() {
 		final String filePath = Util.joinPath(Config.DYNAMIC_INFO_BASE_PATH,
 				Config.PROG_ID(),
 				"coverage-test",
@@ -125,7 +160,9 @@ public class TestsPool {
 	
 	public void computeInfluencers() {
 		failingTestsMap.values().stream().forEach(Test::computeInfluencers);
+		failingTestsMap.values().stream().forEach(Test::computeInfluencerMethods);
 		passingTestsMap.values().stream().forEach(Test::computeInfluencers);
+		passingTestsMap.values().stream().forEach(Test::computeInfluencerMethods);
 	}
 	
 	public Test getTestByName(String name) {
@@ -141,5 +178,28 @@ public class TestsPool {
 		test = TestFactory.v().create(name + "() true PASS");
 		passingTestsMap.put(name, (PassingTest) test);
 		return test;
+	}
+	
+	public Set<String> getFailingTestNames() {
+		return failingTestsMap.keySet();
+	}
+	
+	public Set<String> getPassingTestNames() {
+		return passingTestsMap.keySet();
+	}
+	
+	public static <T> List<T> interleave(final List<T> list1, final List<T> list2) {
+		List<T> result = new ArrayList<>(list1.size() + list2.size());
+		Iterator<T> it1 = list1.iterator();
+		Iterator<T> it2 = list2.iterator();
+		while(it1.hasNext() || it2.hasNext()) {
+			if(it1.hasNext()) {
+				result.add(it1.next());
+		    }
+		    if(it2.hasNext()) {
+		    	result.add(it2.next());
+		    }
+		}
+		return result;
 	}
 }

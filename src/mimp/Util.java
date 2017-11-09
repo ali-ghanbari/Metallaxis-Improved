@@ -3,6 +3,7 @@ package mimp;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.List;
 
 public class Util {
 	private static String remaining;
@@ -20,7 +21,7 @@ public class Util {
 		return path;
 	}
 	
-	public static void openFile(String fileName) {
+	public static void openTextFile(String fileName) {
 		try {
 			br = new BufferedReader(new FileReader(fileName), 4096);
 			remaining = "";
@@ -77,4 +78,16 @@ public class Util {
 		}
 		return result;
 	}
+	
+	public static void listFiles(String path, List<String> fileList){
+        File directory = new File(path);
+        File[] fList = directory.listFiles();
+        for(File file : fList) {
+            if(file.isFile()) {
+                fileList.add(file.getAbsolutePath());
+            } else if(file.isDirectory()) {
+            	listFiles(file.getAbsolutePath(), fileList);
+            }
+        }
+    }
 }

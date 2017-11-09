@@ -14,4 +14,6 @@ public class Config {
 	public static final String DYNAMIC_INFO_BASE_PATH = System.getProperty("dynamic.base.path", null);
 	/*group id example: org.jfree*/
 	public static final String GROUP_ID = System.getProperty("group.id", null);
+	public static final String CLASSES_BASE_PATH = System.getProperty("classes.base.path", null);
+	public static final String CLOSURE_DYN_INF_BASE_PATH = "/home/xia/Xia/PITmutationData/Closure";
 }

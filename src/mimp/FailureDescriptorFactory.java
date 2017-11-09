@@ -11,7 +11,7 @@ public class FailureDescriptorFactory {
 	private int type;
 	
 	private FailureDescriptorFactory() {
-		type = FULL;//KIND_ONLY;//TYPE_ONLY;//TYPE_AND_MSG;//
+		type = FULL;//TYPE_AND_MSG;//KIND_ONLY;//TYPE_ONLY;//
 	}
 	
 	public static FailureDescriptorFactory v() {

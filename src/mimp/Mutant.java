@@ -11,10 +11,13 @@ public class Mutant {
 	
 	public final List<Test> passingImpacts;
 	
-	public Mutant(Map<String, FailureDescriptor> failingTestDetails) {
+	public final Method mutatedMethod;
+	
+	public Mutant(Method mutatedMethod, Map<String, FailureDescriptor> failingTestDetails) {
 		this.failingTestDetails = failingTestDetails;
 		failingImpacts = new ArrayList<>();
 		passingImpacts = new ArrayList<>();
+		this.mutatedMethod = mutatedMethod;
 	}
 	
 	public double oldSusp() {

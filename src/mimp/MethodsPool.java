@@ -41,6 +41,18 @@ public class MethodsPool {
 	}
 	
 	public Method getMethodByFullSignature(String fullSignature) {
+		int index = getMethodIndexByFullSignature(fullSignature);
+		if(index < 0) {
+			return null;
+		}
+		return getMethodByIndex(index);
+	}
+	
+	public Method getMethodByIndex(int index) {
+		return pool.get(index);
+	}
+	
+	public int getMethodIndexByFullSignature(String fullSignature) {
 		int min = 0;
 		int max = pool.size() - 1;
 		while(min <= max) {
@@ -54,9 +66,9 @@ public class MethodsPool {
 			} else if (compResult > 0) { /*midItem.fullSignature > fullSignature*/
 				max = mid - 1;
 			} else { /*midItem.fullSignature = fullSignature*/
-				return midItem;
+				return mid;
 			}
 		}
-		return null;
+		return -1;
 	}
 }

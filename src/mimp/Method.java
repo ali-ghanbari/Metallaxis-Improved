@@ -26,12 +26,22 @@ public class Method implements Comparable<Method> {
 		return fullSignature.equals(other.fullSignature);
 	}
 	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		return prime * fullSignature.hashCode();
+	}
+	
 	public double oldSusp() {
 		return mutants.stream().map(Mutant::oldSusp).max(Double::compareTo).orElse(0.);
 	}
 	
 	public double newSusp() {
 		return mutants.stream().map(Mutant::newSusp).max(Double::compareTo).orElse(0.);
+	}
+	
+	public int numberOfMutants() {
+		return mutants.size();
 	}
 	
 	@Override

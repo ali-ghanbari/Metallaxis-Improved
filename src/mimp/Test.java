@@ -1,22 +1,28 @@
 package mimp;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public abstract class Test implements Comparable<Test> {
 	public final String name;
 	protected Mutant[] influencers;
 	protected Mutant[] failurePoints;
 	protected Mutant[] cover;
+	public final Set<Method> influencerMethods;
 	
 	protected Test(String name) {
 		this.name = name;
 		this.failurePoints = new Mutant[0];
 		this.influencers = new Mutant[0];
 		this.cover = new Mutant[0];
+		this.influencerMethods = new HashSet<>();
 	}
 	
 	public double rank() {
 		//assert(influencers.length > 0);
-		if(influencers.length > 0)
+		if(influencers.length > 0) {
 			return 1. / (double) influencers.length;
+		}
 		return 0;
 	}
 	
@@ -36,6 +42,12 @@ public abstract class Test implements Comparable<Test> {
 	
 	public abstract void computeInfluencers();
 	
+	public void computeInfluencerMethods() {
+		for(Mutant m : influencers) {
+			influencerMethods.add(m.mutatedMethod);
+		}
+	}
+	
 	protected void addInfluencer(Mutant m) {
 		Mutant[] influencers_ext = new Mutant[influencers.length + 1];
 		System.arraycopy(influencers, 0, influencers_ext, 0, influencers.length);
@@ -49,6 +61,12 @@ public abstract class Test implements Comparable<Test> {
 			return false;
 		}
 		return name.equals(((Test) o).name);
+	}
+	
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		return prime * name.hashCode();
 	}
 	
 	@Override
