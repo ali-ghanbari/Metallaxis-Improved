@@ -10,14 +10,10 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
-
-import org.ejml.simple.SimpleMatrix;
 
 import edu.CallgraphAnalysis.CallgraphConstructor;
 import edu.CallgraphAnalysis.JCallGraph;
@@ -25,6 +21,23 @@ import edu.CallgraphAnalysis.JCallGraph;
 public class Main {
 //	private static Set<String> buggyMethodNames = new HashSet<>();
 	private static List<Method> coveredMethods = new ArrayList<>();
+	
+	static Map<String, Set<String>> cg;
+	
+	private static void loadCG() {
+		final String classPath = Util.joinPath(Config.CLASSES_BASE_PATH,
+				Config.PROG_ID(),
+				"" + Config.PROG_VER(),
+				"target",
+				"classes");
+
+		System.out.println("loading call-graph...");
+		CallgraphConstructor cgc = JCallGraph.init(classPath);
+		cg = cgc.getCallGraph();
+	}
+	
+//final 
+//final 
 
 	public static void main(String[] args) {		
 		System.out.println("loading...");
@@ -35,12 +48,14 @@ public class Main {
 		TestsPool.v().computeInfluencers();
 		//loadBuggyMethods();
 		loadCoveredMethods();
-		System.out.println("doing pagerank...");
-		constructMethodToMethodMatrices();
+		
+		loadCG();
+//		System.out.println("doing pagerank...");
+//		constructMethodToMethodMatrices();
 		
 //		constructTestToMethodAndMethodToTestMatrices(TestsPool.v().getFailingTestNames(), true);
 //		constructTestToMethodAndMethodToTestMatrices(TestsPool.v().getPassingTestNames(), false);
-		doPageRank();
+//		doPageRank();
 		
 		
 //		if(Config.PROG_VER() == 75) {
@@ -71,8 +86,22 @@ public class Main {
 			try(PrintWriter pwNew = new PrintWriter(new FileOutputStream(outNewFilePath))) {
 				for(Method meth : coveredMethods) {
 					double sOld = meth.oldSusp();
-					Double newSuspO = newSusp.get(meth.fullSignature);
-					double sNew = newSuspO == null ? meth.newSusp() : newSuspO.doubleValue(); ////meth.newSusp();// 
+					//Double newSuspO = newSusp.get(meth.fullSignature);
+					/************/
+					double addition;
+					addition = 0.01 * Math.log(1 + meth.numberOfMutants());
+					Set<String> callees = cg.get(meth.fullSignature);
+					final int number_of_calees = callees != null ? callees.size() : 0;
+					addition += 0.01 * Math.log(1 + number_of_calees);
+					if(meth.numberOfMutants() < 5) {
+						addition += 0.01 * Math.log(1 + (5 - meth.numberOfMutants()));
+					}
+//					if(number_of_calees > 0) {
+//						addition += 0.01 * Math.log(1 + number_of_calees);//Math.log(1 + ) * Math.log(1 + meth.numberOfMutants()));// * Math.log( + number_of_calees));
+//					}
+//					addition += (1. - 0.85) * Math.log(2);
+					/************/
+					double sNew = meth.newSusp() + addition;//newSuspO == null ? meth.newSusp() : newSuspO.doubleValue(); //// 
 					final String oldStr = meth.fullSignature + " " + sOld;
 					final String newStr = meth.fullSignature + " " + sNew;
 					pwOld.println(oldStr);
@@ -361,210 +390,142 @@ public class Main {
 		}
 	}
 	
-	private static Map<String, Set<String>> inverseCallgraph(Map<String, Set<String>> cg) {
-		final Map<String, Set<String>> inverse = new HashMap<>();
-		for(Entry<String, Set<String>> calls : cg.entrySet()) {
-			final String caller = calls.getKey();
-			for(String callee : calls.getValue()) {
-				Set<String> callers = inverse.get(callee);
-				if(callers == null) {
-					callers = new HashSet<>();
-					inverse.put(callee, callers);
-				}
-				callers.add(caller);
-			}
-		}
-		return inverse;
-	}
-	
-	private static Map<String, Integer> methodName2Index = new HashMap<>();
-	private static List<String> index2MethodName = new ArrayList<>();
-	private static SimpleMatrix methodsMatrix_Callers = null;
-	private static SimpleMatrix methodsMatrix_Callees = null;
-	private static int methodsCount;
-	
-	private static void constructMethodToMethodMatrices() {
-		final String classPath = Util.joinPath(Config.CLASSES_BASE_PATH,
-				Config.PROG_ID(),
-				"" + Config.PROG_VER(),
-				"target",
-				"classes");
-		final CallgraphConstructor cgc = JCallGraph.init(classPath);
-		final Map<String, Set<String>> cg = cgc.getCallGraph();
-		final Map<String, Set<String>> cg_inv = inverseCallgraph(cg);
-		if(cg == null) {
-			throw new RuntimeException("invalid class path: " + classPath);
-		}
-		int count = 0;
-		for(final String mn : cgc.getAllMethods()) {
-			if(MethodsPool.v().getMethodIndexByFullSignature(mn) >= 0) {
-				methodName2Index.put(mn, count++);
-				index2MethodName.add(mn);
-			}
-		}
-		final int dim = count;
-		methodsCount = count;
-		methodsMatrix_Callers = new SimpleMatrix(dim, dim);
-		methodsMatrix_Callees = new SimpleMatrix(dim, dim);
-		/*building forward links: flow from callers to the (subject) callee*/
-		for(int row = 0; row < dim; row++) {
-			final String subjectMethodName = index2MethodName.get(row);
-			final Method subjectMethod = MethodsPool.v().getMethodByFullSignature(subjectMethodName);
-			final Set<String> callers = cg_inv.get(subjectMethodName);
-			if(callers == null) {
-				continue; /*we rely on the initialization of SimpleMatrix's constructor*/
-			}
-			final int numberOfCallers = callers.size();
-			final int subjectSize = subjectMethod.numberOfMutants();
-			final double edgeWeight;
-			if(numberOfCallers > 0) {
-				edgeWeight = Math.log(1 + subjectSize) / (double) numberOfCallers;
-			} else {
-				edgeWeight = 0; /*this won't be used anyway, and we rely on the initialization of SimpleMatrix's constructor*/
-			}
-			for(final String caller : callers) {
-				final Integer col = methodName2Index.get(caller);
-				assert(col != null || MethodsPool.v().getMethodIndexByFullSignature(caller) < 0);
-				if(col != null) {
-					methodsMatrix_Callers.set(row, col.intValue(), edgeWeight);
-				}
-			}
-		}
-		/*building backward links: flow from the (subject) caller to callees*/
-		for(int col = 0; col < dim; col++) {
-			final String subjectMethodName = index2MethodName.get(col);
-			final Method subjectMethod = MethodsPool.v().getMethodByFullSignature(subjectMethodName);
-			final Set<String> callees = cg.get(subjectMethodName);
-			if(callees == null) {
-				continue; /*we rely on the initialization of SimpleMatrix's constructor*/
-			}
-			final int numberOfCallees = callees.size();
-			final int subjectSize = subjectMethod.numberOfMutants();
-			final double edgeWeight;
-			if(numberOfCallees > 0) {
-				edgeWeight = Math.log(1 + subjectSize + numberOfCallees);
-			} else {
-				edgeWeight = 0; /*this won't be used anyway, and we rely on the initialization of SimpleMatrix's constructor*/
-			}
-			for(final String callee : callees) {
-				final Integer row = methodName2Index.get(callee);
-				assert(row != null || MethodsPool.v().getMethodIndexByFullSignature(callee) < 0);
-				if(row != null) {
-					methodsMatrix_Callees.set(row.intValue(), col, edgeWeight);
-				}
-			}
-		}
-	}
-	
-//	for(int col = 0; col < dim; col++) {
-//		final String methodName = methodNamesInMatrix.get(col);
-//		final Set<String> rawCallees = cg.get(methodName);
-//		if(rawCallees != null) {
-//			Set<String> callees = rawCallees.stream()
-//					.filter(mn -> MethodsPool.v().getMethodIndexByFullSignature(mn) >= 0)
-//					.collect(Collectors.toSet());
-//			final long calleesCount = callees.size();
-//			final double transitionProb;
-//			if(calleesCount > 0) {
-//				transitionProb = 1.D / (double) calleesCount;
-//			} else {
-//				transitionProb = 0.; //isolated, and will be handled by teleportation vector if we want
+//	private static Map<String, Set<String>> inverseCallgraph(Map<String, Set<String>> cg) {
+//		final Map<String, Set<String>> inverse = new HashMap<>();
+//		for(Entry<String, Set<String>> calls : cg.entrySet()) {
+//			final String caller = calls.getKey();
+//			for(String callee : calls.getValue()) {
+//				Set<String> callers = inverse.get(callee);
+//				if(callers == null) {
+//					callers = new HashSet<>();
+//					inverse.put(callee, callers);
+//				}
+//				callers.add(caller);
 //			}
-//			final int callerIndex = col;
-//			callees.forEach(callee -> {
-//				final int calleeIndex = methodNamesInMatrixIndexMap.get(callee);
-//				methodsMatrix.set(calleeIndex, callerIndex, transitionProb);
-////				final Set<String> callers = cg_inv.get(callee);
-////				final int callersCount = callers == null ? 0 : callers.size();
-////				final double invTransitionProb;
-////				if(callersCount > 0) {
-////					invTransitionProb = 1.D / (double) callersCount;
-////				} else {
-////					assert(false);
-////					invTransitionProb = 0.;
+//		}
+//		return inverse;
+//	}
+	
+//	private static Map<String, Integer> methodName2Index = new HashMap<>();
+//	private static List<String> index2MethodName = new ArrayList<>();
+//	private static SimpleMatrix methodsMatrix = null;//_Callers = null;
+//	//private static SimpleMatrix methodsMatrix_Callees = null;
+//	private static int methodsCount;
+//	
+//	//private static final int THRESHOLD = 1;
+//		
+//	private static void constructMethodToMethodMatrices() {
+//		final String classPath = Util.joinPath(Config.CLASSES_BASE_PATH,
+//				Config.PROG_ID(),
+//				"" + Config.PROG_VER(),
+//				"target",
+//				"classes");
+//		final CallgraphConstructor cgc = JCallGraph.init(classPath);
+//		final Map<String, Set<String>> cg = cgc.getCallGraph();
+//		final Map<String, Set<String>> cg_inv = inverseCallgraph(cg);
+//		if(cg == null) {
+//			throw new RuntimeException("invalid class path: " + classPath);
+//		}
+//		int count = 0;
+//		for(final String mn : cgc.getAllMethods()) {
+//			if(MethodsPool.v().getMethodIndexByFullSignature(mn) >= 0) {
+//				methodName2Index.put(mn, count++);
+//				index2MethodName.add(mn);
+//			}
+//		}
+//		final int dim = count;
+//		methodsCount = count;
+//		methodsMatrix = new SimpleMatrix(dim, dim);//_Callers = new SimpleMatrix(dim, dim);
+//		//methodsMatrix_Callees = new SimpleMatrix(dim, dim);
+//		/*building forward links: flow from callers to the (subject) callee*/
+//		for(int row = 0; row < dim; row++) {
+//			final String subjectMethodName = index2MethodName.get(row);
+//			final Method subjectMethod = MethodsPool.v().getMethodByFullSignature(subjectMethodName);
+//			final Set<String> callers = cg_inv.get(subjectMethodName);
+//			if(callers == null) {
+//				continue; /*we rely on the initialization of SimpleMatrix's constructor*/
+//			}
+//			final int numberOfCallers = callers.size();
+//			final int subjectSize = subjectMethod.numberOfMutants();
+//			final double edgeWeight;
+//			if(numberOfCallers > 0) {
+//			//	if(subjectSize >= THRESHOLD) {
+//					edgeWeight = Math.log(1 + subjectSize) / (double) numberOfCallers;
+//			//	} else {
+//			//		edgeWeight = Math.log(5 * (1 + subjectSize)) / (double) numberOfCallers;
+//			//	}
+//			} else {
+//				edgeWeight = 0; /*this won't be used anyway, and we rely on the initialization of SimpleMatrix's constructor*/
+//			}
+//			
+//			for(final String caller : callers) {
+//				final double delta = 1;
+//				final Integer col = methodName2Index.get(caller);
+//				assert(col != null || MethodsPool.v().getMethodIndexByFullSignature(caller) < 0);
+//				if(col != null) {
+//					double oldVal = methodsMatrix.get(row, col.intValue());
+//					methodsMatrix.set(row, col.intValue(), oldVal + edgeWeight);//_Callers.set(row, col.intValue(), edgeWeight);
+//					oldVal = methodsMatrix.get(col.intValue(), row);
+//					methodsMatrix.set(col.intValue(), row, oldVal + delta/*edgeWeight*/);
+//				}
+//			}
+//		}
+////		/*building backward links: flow from the (subject) caller to callees*/
+////		for(int col = 0; col < dim; col++) {
+////			final String subjectMethodName = index2MethodName.get(col);
+////			final Method subjectMethod = MethodsPool.v().getMethodByFullSignature(subjectMethodName);
+////			final Set<String> callees = cg.get(subjectMethodName);
+////			if(callees == null) {
+////				continue; /*we rely on the initialization of SimpleMatrix's constructor*/
+////			}
+////			final int numberOfCallees = callees.size();
+////			final int subjectSize = subjectMethod.numberOfMutants();
+////			final double edgeWeight;
+////			if(numberOfCallees > 0) {
+////				//if(subjectSize >= THRESHOLD) {
+////					edgeWeight = Math.log(1 + subjectSize);// + numberOfCallees);
+////				//} else {
+////				//	edgeWeight = Math.log(5 * (1 + subjectSize) + numberOfCallees);
+////				//}
+////			} else {
+////				edgeWeight = 0; /*this won't be used anyway, and we rely on the initialization of SimpleMatrix's constructor*/
+////			}
+////			for(final String callee : callees) {
+////				final Integer row = methodName2Index.get(callee);
+////				assert(row != null || MethodsPool.v().getMethodIndexByFullSignature(callee) < 0);
+////				if(row != null) {
+////					methodsMatrix_Callees.set(row.intValue(), col, edgeWeight);
 ////				}
-////				methodsMatrix.set(callerIndex, calleeIndex, invTransitionProb);
-//			});
+////			}
+////		}
+//	}
+//	
+//	private static Map<String, Double> newSusp = new HashMap<>();
+//	
+//	private static SimpleMatrix doPageRank(SimpleMatrix p, SimpleMatrix v, double dampingFactor, double alpha) {
+//		p = p.scale(alpha);
+//		SimpleMatrix x = v.copy();
+//		for(int __ = 0; __ < 25; __++) {
+//			x = p.mult(x).scale(dampingFactor).plus(v.scale(1 - dampingFactor));
+//		}
+//		return x;
+//	}
+//	
+//	private static void doPageRank() {
+//		final SimpleMatrix v = new SimpleMatrix(methodsCount, 1);
+//		for(int row = 0; row < methodsCount; row++) {
+//			final String methodName = index2MethodName.get(row);
+//			final Method method = MethodsPool.v().getMethodByFullSignature(methodName);
+//			v.set(row, 0, method.newSusp());
+//		}
+////		SimpleMatrix forwardSusp = doPageRank(methodsMatrix_Callers, v, 0.85, 0.01);
+////		SimpleMatrix backwardSusp = doPageRank(methodsMatrix_Callees, v, 0.85, 0.01);
+//		SimpleMatrix overalSusp = doPageRank(methodsMatrix, v, 0.85, 0.01);
+//		//SimpleMatrix overalSusp = forwardSusp.plus(backwardSusp);//.minus(v);
+//		for(int row = 0; row < methodsCount; row++) {
+//			final String methodName = index2MethodName.get(row);
+//			newSusp.put(methodName, overalSusp.get(row, 0));
 //		}
 //	}
 	
-//	private static SimpleMatrix testToMethodMatrix = null;
-//	private static SimpleMatrix methodToTestMatrix = null;
-//	private static Map<String, Integer> testNameIndexMap = new HashMap<>();
-//	
-//	private static void constructTestToMethodAndMethodToTestMatrices(Set<String> testNames, boolean failing) {
-//		int testNamesCount = 0;
-//		for(String tn : testNames) {
-//			if(TestsPool.v().getTestByName(tn) != null) {
-//				testNameIndexMap.put(tn, testNamesCount++);
-//			}
-//		}
-//		testToMethodMatrix = new SimpleMatrix(methodToMethodMatrix.numRows(), testNamesCount);
-//		methodToTestMatrix = new SimpleMatrix(testNamesCount, methodToMethodMatrix.numCols());
-//		for(String tn : testNames) {
-//			Set<Method> influencerMethods = TestsPool.v().getTestByName(tn).influencerMethods;
-//			final double fromTestTransitionProb;
-//			final int influencerMethodsCount = influencerMethods.size();
-//			if(influencerMethodsCount > 0) {
-//				fromTestTransitionProb = 1.D / (double) influencerMethodsCount;
-//			} else {
-//				fromTestTransitionProb = 0.; //isolated tests contribute nothing
-//			}
-//			final int testIndex = testNameIndexMap.get(tn);
-//			influencerMethods.stream().forEach(method -> {
-////				for(String s : methodNamesInMatrixMap.keySet())
-////					System.out.println(s + "\t" + method.fullSignature);
-//				final int methodIndex = methodNamesInMatrixMap.get(method.fullSignature);
-//				testToMethodMatrix.set(methodIndex, testIndex, fromTestTransitionProb);
-//			});
-//		}
-//		methodNamesInMatrix.stream().map(mn -> MethodsPool.v().getMethodByFullSignature(mn)).forEach(method -> {
-//			final Set<String> influencedTestNames = new HashSet<>();
-//			for(Mutant mutant : method.mutants) {
-//				List<Test> influencedTests = failing ? mutant.failingImpacts : mutant.passingImpacts;
-//				influencedTests.stream().forEach(test -> {
-//					influencedTestNames.add(test.name);
-//				});
-//			}
-//			final int influencedTestsCount = influencedTestNames.size();
-//			final double fromMethodTransitionProb;
-//			if(influencedTestsCount > 0) {
-//				fromMethodTransitionProb = 1.D / (double) influencedTestsCount;
-//			} else {
-//				fromMethodTransitionProb = 0.; //isolated, and will be handled by teleportation vector if we want
-//			}
-//			final int methodIndex = methodNamesInMatrixMap.get(method.fullSignature);
-//			influencedTestNames.stream().mapToInt(itn -> testNameIndexMap.get(itn)).forEach(testIndex -> {
-//				methodToTestMatrix.set(testIndex, methodIndex, fromMethodTransitionProb);
-//			});
-//		});
-//	}
-//	
-	
-	private static Map<String, Double> newSusp = new HashMap<>();
-	
-	private static SimpleMatrix doPageRank(SimpleMatrix p, SimpleMatrix v, double dampingFactor, double alpha) {
-		p = p.scale(alpha);
-		SimpleMatrix x = v.copy();
-		for(int __ = 0; __ < 25; __++) {
-			x = p.mult(x).scale(dampingFactor).plus(v.scale(1 - dampingFactor));
-		}
-		return x;
-	}
-	
-	private static void doPageRank() {
-		final SimpleMatrix v = new SimpleMatrix(methodsCount, 1);
-		for(int row = 0; row < methodsCount; row++) {
-			final String methodName = index2MethodName.get(row);
-			final Method method = MethodsPool.v().getMethodByFullSignature(methodName);
-			v.set(row, 0, method.newSusp());
-		}
-		SimpleMatrix forwardSusp = doPageRank(methodsMatrix_Callers, v, 0.85, 0.1);
-		SimpleMatrix backwardSusp = doPageRank(methodsMatrix_Callees, v, 0.85, 0.1);
-		SimpleMatrix overalSusp = forwardSusp.plus(backwardSusp);//.minus(v);
-		for(int row = 0; row < methodsCount; row++) {
-			final String methodName = index2MethodName.get(row);
-			newSusp.put(methodName, overalSusp.get(row, 0));
-		}
-	}
 }

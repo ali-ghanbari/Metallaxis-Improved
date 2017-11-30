@@ -24,6 +24,7 @@ public class Util {
 	public static void openTextFile(String fileName) {
 		try {
 			br = new BufferedReader(new FileReader(fileName), 4096);
+			
 			remaining = "";
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -79,7 +80,7 @@ public class Util {
 		return result;
 	}
 	
-	public static void listFiles(String path, List<String> fileList){
+	public static void listFiles(String path, List<String> fileList) {
         File directory = new File(path);
         File[] fList = directory.listFiles();
         for(File file : fList) {
